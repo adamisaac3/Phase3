@@ -194,8 +194,39 @@ namespace LMS.Areas.Identity.Pages.Account
         /// <returns>The uID of the new user</returns>
         string CreateNewUser( string firstName, string lastName, DateTime DOB, string departmentAbbrev, string role )
         {
-            return "unknown";
-        }
+            try
+            {
+
+
+                var allIDs = db.Administrators.Select(a => a.UId).Concat(db.Professors.Select(p => p.UId)).Concat(db.Students.Select(s => s.UId)).AsEnumerable().Select(id => int.Parse(id.Substring(1))).DefaultIfEmpty(0).Max();
+
+                var newID = allIDs + 1;
+
+                var newId = $"u{newID.ToString().PadLeft(7, '0')}";
+
+
+                switch (role)
+                {
+                    case "Administrator":
+                        db.Administrators.Add(new Administrator { UId = newId, FName = firstName, LName = lastName, DateOfBirth = DateOnly.FromDateTime(DOB) });
+                        break;
+                    case "Professor":
+                        db.Professors.Add(new Professor { UId = newId, FName = firstName, LName = lastName, DateOfBirth = DateOnly.FromDateTime(DOB), WorksIn = db.Departments.FirstOrDefault(d => d.DName == departmentAbbrev).DId });
+                        break;
+                    case "Student":
+                        db.Students.Add(new Student { UId = newId, FName = firstName, LName = lastName, DateOfBirth = DateOnly.FromDateTime(DOB), Major = db.Departments.FirstOrDefault(d => d.DName == departmentAbbrev).DId });
+                        break;
+                    default:
+                        throw new ArgumentException($"Invalid role: {role}");
+                }
+
+                db.SaveChanges();
+                return newId;
+            }
+            catch (Exception e)
+            {
+                throw new Exception($"Error creating new user: {e.Message}");
+            }
 
         /*******End code to modify********/
     }
