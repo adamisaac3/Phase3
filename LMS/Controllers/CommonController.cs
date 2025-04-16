@@ -53,8 +53,19 @@ namespace LMS.Controllers
         /// </summary>
         /// <returns>The JSON array</returns>
         public IActionResult GetCatalog()
-        {            
-            return Json(null);
+        {
+            var catalog = db.Departments.Select(d => new
+            {
+                subject = d.Subject,
+                dname = d.DName,
+                courses = db.Courses.Where(c => c.DIdNavigation.Subject == d.Subject).Select(c => new
+                {
+                    number = c.CNum,
+                    cname = c.CName
+                }).ToList()
+            }).ToList();
+
+            return Json(catalog);
         }
 
         /// <summary>
@@ -73,7 +84,20 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetClassOfferings(string subject, int number)
         {            
-            return Json(null);
+            var offerings = db.Classes
+                .Where(c => c.CIdNavigation.CNum == number && c.CIdNavigation.DIdNavigation.Subject == subject)
+                .Select(c => new
+                {
+                    season = c.Semester,
+                    year = c.Year,
+                    location = c.Location,
+                    start = c.StartTime.ToString("hh:mm:ss"),
+                    end = c.EndTime.ToString("hh:mm:ss"),
+                    fname = db.Professors.FirstOrDefault(p => p.PId == c.PId).FName,
+                    lname = db.Professors.FirstOrDefault(p => p.PId == c.PId).LName
+                }).ToList();
+
+            return Json(offerings);
         }
 
         /// <summary>

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using LMS.Models.LMSModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 // For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 [assembly: InternalsVisibleTo( "LMSControllerTests" )]
@@ -159,7 +160,15 @@ namespace LMS_CustomIdentity.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetAssignmentCategories(string subject, int num, string season, int year)
         {
-            return Json(null);
+            var cats = db.AssignmentCategories.Where(ac => ac.Class.CIdNavigation.CNum == num &&
+                ac.Class.CIdNavigation.DIdNavigation.Subject == subject &&
+                ac.Class.Semester == season && ac.Class.Year == year).Select(ac => new
+                {
+                    name = ac.CatName,
+                    weight = ac.Weight
+                }).ToList();
+
+            return Json(cats);
         }
 
         /// <summary>
@@ -175,7 +184,34 @@ namespace LMS_CustomIdentity.Controllers
         /// <returns>A JSON object containing {success = true/false} </returns>
         public IActionResult CreateAssignmentCategory(string subject, int num, string season, int year, string category, int catweight)
         {
-            return Json(new { success = false });
+            try
+            {
+                var classID = db.Classes.Where(c => c.CIdNavigation.CNum == num && c.CIdNavigation.DIdNavigation.Subject == subject && c.Semester == season && c.Year == year).Select(c => c.ClassId).FirstOrDefault();
+
+                if (classID == 0)
+                {
+                    return Json(new { success = false });
+                }
+
+                if (db.AssignmentCategories.Any(ac => ac.ClassId == classID && ac.CatName == category))
+                {
+                    return Json(new { success = false });
+                }
+
+                db.AssignmentCategories.Add(new AssignmentCategory
+                {
+                    CatName = category,
+                    Weight = (uint)catweight,
+                    ClassId = classID
+                });
+
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
+            catch(Exception e)
+            {
+                return Json(new { success = false });
+            }
         }
 
         /// <summary>
@@ -250,13 +286,97 @@ namespace LMS_CustomIdentity.Controllers
         /// <param name="uid">The professor's uid</param>
         /// <returns>The JSON array</returns>
         public IActionResult GetMyClasses(string uid)
-        {            
-            return Json(null);
+        {
+            try
+            {
+                var classes = db.Classes
+                    .Where(c => c.PIdNavigation.UId == uid)
+                    .Select(c => new
+                    {
+                        subject = c.CIdNavigation.DIdNavigation.Subject,
+                        number = c.CIdNavigation.CNum,
+                        name = c.CIdNavigation.CName,
+                        season = c.Semester,
+                        year = c.Year
+                    }).ToList();
+                return Json(classes);
+            }
+            catch (Exception e)
+            {
+                return Json(new { success = false });
+            }
+
         }
-
-
         
         /*******End code to modify********/
     }
 }
 
+public class GradeCalculator
+{
+    public static string CalculateGrade(LMSContext db, string uid, uint classID)
+    {
+        var categories = db.AssignmentCategories.Where(ac => ac.ClassId == classID).Include(ac => ac.Assignments).ToList();
+
+        var validCategories = categories.Where(ac => ac.Assignments.Any()).ToList();
+
+        if (!validCategories.Any())
+        {
+            return "--";
+        }
+
+        long totalScaledScore = 0;
+        long totalWeights = 0;
+
+        foreach(var category in validCategories)
+        {
+            long? categoryMaxPoints = category.Assignments.Sum(a => a.Points);
+            long studentPoints = 0;
+
+            foreach(var assignment in category.Assignments)
+            {
+                var submission = db.Submissions.FirstOrDefault(s => s.AssignmentId == assignment.AssignmentId && s.SIdNavigation.UId == uid);
+                if (submission != null)
+                {
+                    studentPoints += submission?.Score ?? 0;
+                }
+
+                
+            }
+
+            double categoryPercent = categoryMaxPoints > 0 ? (double)studentPoints / (double)categoryMaxPoints : 0;
+            totalScaledScore += (long)(categoryPercent * category.Weight);
+            totalWeights += (long)category.Weight;
+        }
+
+        if (totalWeights == 0)
+        {
+            return "--";
+        }
+
+        double scalingFactor = 100.0 / (double)totalWeights;
+        double finalScore = (double)totalScaledScore * scalingFactor;
+
+        return PercentToLetterGrade(finalScore);
+    }
+
+    private static string PercentToLetterGrade(double percent)
+    {
+        return percent switch
+        {
+            >= 93 => "A",
+            >= 90 => "A-",
+            >= 87 => "B+",
+            >= 83 => "B",
+            >= 80 => "B-",
+            >= 77 => "C+",
+            >= 73 => "C",
+            >= 70 => "C-",
+            >= 67 => "D+",
+            >= 63 => "D",
+            >= 60 => "D-",
+            _ => "F"
+        };
+    }
+
+}

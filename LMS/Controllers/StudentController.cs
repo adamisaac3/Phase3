@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using LMS.Models.LMSModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 
 // For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 [assembly: InternalsVisibleTo( "LMSControllerTests" )]
@@ -135,8 +136,31 @@ namespace LMS.Controllers
         /// <returns>A JSON object containing {success = {true/false}. 
         /// false if the student is already enrolled in the class, true otherwise.</returns>
         public IActionResult Enroll(string subject, int num, string season, int year, string uid)
-        {          
-            return Json(new { success = false});
+        {
+            try
+            {
+                var classToEnroll = db.Classes.FirstOrDefault(c => c.CIdNavigation.DIdNavigation.Subject == subject &&
+                c.CIdNavigation.CNum == num &&
+                c.Semester == season &&
+                c.Year == year
+                );
+
+                if(classToEnroll == null)
+                {
+                    return Json(new { success = false });
+                }
+
+                if(db.Enrolleds.Any(e => e.ClassId == classToEnroll.ClassId && e.SIdNavigation.UId == uid))
+                {
+                    return Json(new { success = false });
+                }
+                db.Enrolleds.Add(new Enrolled
+                {
+                    ClassId = classToEnroll.ClassId,
+                    SId = (SIdNavigation.UId = uid)
+
+                });
+            }
         }
 
 

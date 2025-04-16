@@ -191,7 +191,7 @@ namespace LMS.Controllers
                     return Json(new { success = false });
                 }
 
-                if (db.Classes.Any(c => c.ClassId == course.CId && c.Semester == season && c.Year == year))
+                if (db.Classes.Any(c => c.CId == course.CId && c.Semester == season && c.Year == year))
                 {
                     return Json(new { success = false });
                 }
