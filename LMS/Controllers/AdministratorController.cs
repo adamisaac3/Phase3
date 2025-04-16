@@ -50,8 +50,30 @@ namespace LMS.Controllers
         /// false if the department already exists, true otherwise.</returns>
         public IActionResult CreateDepartment(string subject, string name)
         {
+            try
+            {
+
+
+                if (db.Departments.Any(d => d.Subject == subject))
+                {
+                    return Json(new { success = false });
+                }
+
+                db.Departments.Add(new Department
+                {
+                    Subject = subject,
+                    DName = name
+
+                });
+                
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
+            catch(Exception e)
+            {
+                return Json(new { success = false });
+            }
             
-            return Json(new { success = false});
         }
 
 
@@ -65,8 +87,15 @@ namespace LMS.Controllers
         /// <returns>The JSON result</returns>
         public IActionResult GetCourses(string subject)
         {
+            var courses = db.Courses
+                .Where(c => c.DIdNavigation.Subject == subject).OrderBy(c => c.CNum)
+                .Select(c => new
+                {
+                    number = c.CNum,
+                    name = c.CName
+                }).ToList();
             
-            return Json(null);
+            return Json(courses);
         }
 
         /// <summary>
@@ -80,9 +109,13 @@ namespace LMS.Controllers
         /// <returns>The JSON result</returns>
         public IActionResult GetProfessors(string subject)
         {
-            
-            return Json(null);
-            
+            var professors = db.Professors.Where(p => p.WorksIn == db.Departments.FirstOrDefault(d => d.Subject == subject).DId).OrderBy(p => p.LName).Select(p => new
+            {
+                lname = p.LName,
+                fname = p.FName,
+                uid = p.UId
+            }).ToList();
+            return Json(professors);
         }
 
 
@@ -97,8 +130,28 @@ namespace LMS.Controllers
         /// <returns>A JSON object containing {success = true/false}.
         /// false if the course already exists, true otherwise.</returns>
         public IActionResult CreateCourse(string subject, int number, string name)
-        {           
-            return Json(new { success = false });
+        {
+            try
+            {
+                if (db.Courses.Any(c => c.CNum == number && c.CName == name))
+                {
+                    return Json(new { success = false });
+                }
+
+                db.Courses.Add(new Course
+                {
+                    CNum = (uint)number,
+                    CName = name,
+                    DId = db.Departments.FirstOrDefault(d => d.Subject == subject).DId
+                });
+
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
+            catch(Exception e)
+            {
+                return Json(new { success = false });
+            }
         }
 
 
@@ -120,8 +173,57 @@ namespace LMS.Controllers
         /// a Class offering of the same Course in the same Semester,
         /// true otherwise.</returns>
         public IActionResult CreateClass(string subject, int number, string season, int year, DateTime start, DateTime end, string location, string instructor)
-        {            
-            return Json(new { success = false});
+        {
+            try
+            {
+
+
+                if (end <= start)
+                {
+                    return Json(new { success = false });
+                }
+                TimeOnly startTime = TimeOnly.FromDateTime(start);
+                TimeOnly endTime = TimeOnly.FromDateTime(end);
+
+                var course = db.Courses.FirstOrDefault(c => c.DId == db.Departments.FirstOrDefault(d => d.Subject == subject).DId);
+                if (course == null)
+                {
+                    return Json(new { success = false });
+                }
+
+                if (db.Classes.Any(c => c.ClassId == course.CId && c.Semester == season && c.Year == year))
+                {
+                    return Json(new { success = false });
+                }
+
+                bool existingConflict = db.Classes.Any(c => c.Location == location && c.Semester == season && c.Year == year &&
+                    ((startTime >= c.StartTime && startTime < c.EndTime) ||
+                     (endTime > c.StartTime && endTime <= c.EndTime) ||
+                     (startTime <= c.StartTime && endTime >= c.EndTime)));
+
+                if (existingConflict)
+                {
+                    return Json(new { success = false });
+                }
+
+                db.Classes.Add(new Class
+                {
+                    Semester = season,
+                    Year = (uint)year,
+                    Location = location,
+                    StartTime = startTime,
+                    EndTime = endTime,
+                    CId = course.CId,
+                    PId = db.Professors.FirstOrDefault(p => p.UId == instructor).PId
+                });
+
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
+            catch(Exception e)
+            {
+                return Json(new { success = false });
+            }
         }
 
 

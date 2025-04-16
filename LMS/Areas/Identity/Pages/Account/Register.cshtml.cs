@@ -192,7 +192,7 @@ namespace LMS.Areas.Identity.Pages.Account
         /// <param name="departmentAbbrev">The department abbreviation that the user belongs to (ignore for Admins) </param>
         /// <param name="role">The user's role: one of "Administrator", "Professor", "Student"</param>
         /// <returns>The uID of the new user</returns>
-        string CreateNewUser( string firstName, string lastName, DateTime DOB, string departmentAbbrev, string role )
+        string CreateNewUser(string firstName, string lastName, DateTime DOB, string departmentAbbrev, string role)
         {
             try
             {
@@ -211,10 +211,10 @@ namespace LMS.Areas.Identity.Pages.Account
                         db.Administrators.Add(new Administrator { UId = newId, FName = firstName, LName = lastName, DateOfBirth = DateOnly.FromDateTime(DOB) });
                         break;
                     case "Professor":
-                        db.Professors.Add(new Professor { UId = newId, FName = firstName, LName = lastName, DateOfBirth = DateOnly.FromDateTime(DOB), WorksIn = db.Departments.FirstOrDefault(d => d.DName == departmentAbbrev).DId });
+                        db.Professors.Add(new Professor { UId = newId, FName = firstName, LName = lastName, DateOfBirth = DateOnly.FromDateTime(DOB), WorksIn = db.Departments.FirstOrDefault(d => d.Subject == departmentAbbrev).DId });
                         break;
                     case "Student":
-                        db.Students.Add(new Student { UId = newId, FName = firstName, LName = lastName, DateOfBirth = DateOnly.FromDateTime(DOB), Major = db.Departments.FirstOrDefault(d => d.DName == departmentAbbrev).DId });
+                        db.Students.Add(new Student { UId = newId, FName = firstName, LName = lastName, DateOfBirth = DateOnly.FromDateTime(DOB), Major = db.Departments.FirstOrDefault(d => d.Subject == departmentAbbrev).DId });
                         break;
                     default:
                         throw new ArgumentException($"Invalid role: {role}");
@@ -227,7 +227,7 @@ namespace LMS.Areas.Identity.Pages.Account
             {
                 throw new Exception($"Error creating new user: {e.Message}");
             }
-
+        }
         /*******End code to modify********/
     }
 }
