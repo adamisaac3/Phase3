@@ -151,8 +151,49 @@ namespace LMS.Controllers
         /// <returns>A JSON object containing {success = true/false}</returns>
         public IActionResult SubmitAssignmentText(string subject, int num, string season, int year,
           string category, string asgname, string uid, string contents)
-        {           
-            return Json(new { success = false });
+        {
+            var assignment = db.Assignments.FirstOrDefault(a => a.AName == asgname &&
+                a.Category.Class.CIdNavigation.CNum == num &&
+                a.Category.Class.Year == year &&
+                a.Category.Class.Semester == season &&
+                a.Category.CatName == category &&
+                a.Category.Class.CIdNavigation.DIdNavigation.Subject == subject);
+
+            if (assignment == null)
+            {
+                return Json(new { success = false });
+            }
+
+            var isEnrolled = db.Enrolleds.Any(e => e.ClassId == assignment.Category.ClassId &&
+                e.SIdNavigation.UId == uid);
+
+            if (!isEnrolled)
+            {
+                return Json(new { success = false });
+            }
+
+            var submission = db.Submissions.FirstOrDefault(s => s.AssignmentId == assignment.AssignmentId &&
+                s.SIdNavigation.UId == uid);
+
+            if (submission != null)
+            {
+                submission.SDateTime = DateTime.Now;
+                submission.SContent = contents;
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
+            else
+            {
+                db.Submissions.Add(new Submission
+                {
+                    AssignmentId = assignment.AssignmentId,
+                    SId = db.Students.FirstOrDefault(s => s.UId == uid).SId,
+                    SDateTime = DateTime.Now,
+                    SContent = contents
+                });
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
         }
 
 
