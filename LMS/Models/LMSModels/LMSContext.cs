@@ -227,7 +227,6 @@ namespace LMS.Models.LMSModels
 
                 entity.Property(e => e.DId)
                     .HasColumnType("int(10) unsigned")
-                    .ValueGeneratedNever()
                     .HasColumnName("dID");
 
                 entity.Property(e => e.DName)
@@ -258,12 +257,6 @@ namespace LMS.Models.LMSModels
                 entity.Property(e => e.Grade)
                     .HasMaxLength(2)
                     .HasColumnName("grade");
-
-                entity.Property(e => e.SDateTime)
-                    .HasColumnType("datetime")
-                    .HasColumnName("sDateTime");
-
-                entity.Property(e => e.Score).HasColumnType("int(10) unsigned");
 
                 entity.HasOne(d => d.Class)
                     .WithMany(p => p.Enrolleds)

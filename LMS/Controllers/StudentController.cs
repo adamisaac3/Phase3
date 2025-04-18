@@ -76,8 +76,26 @@ namespace LMS.Controllers
         /// <param name="uid">The uid of the student</param>
         /// <returns>The JSON array</returns>
         public IActionResult GetMyClasses(string uid)
-        {           
-            return Json(null);
+        {
+            var classes = db.Enrolleds
+                .Where(e => e.SIdNavigation.UId == uid)
+                .Join(
+                    db.Classes,
+                    e => e.ClassId,
+                    c => c.ClassId,
+                    (e, c) => new
+                    {
+                        subject = c.CIdNavigation.DIdNavigation.Subject,
+                        number = c.CIdNavigation.CNum,
+                        name = c.CIdNavigation.CName,
+                        season = c.Semester,
+                        year = c.Year,
+                        grade = e.Grade
+                    }
+                )
+                .ToList();
+
+            return Json(classes);
         }
 
         /// <summary>
@@ -157,9 +175,16 @@ namespace LMS.Controllers
                 db.Enrolleds.Add(new Enrolled
                 {
                     ClassId = classToEnroll.ClassId,
-                    SId = (SIdNavigation.UId = uid)
-
+                    SId = db.Students.FirstOrDefault(s => s.UId == uid).SId,
+                    Grade = "--"
+             
                 });
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
+            catch(Exception e)
+            {
+                return Json(new { success = false });
             }
         }
 

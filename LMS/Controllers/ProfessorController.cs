@@ -142,7 +142,26 @@ namespace LMS_CustomIdentity.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetAssignmentsInCategory(string subject, int num, string season, int year, string category)
         {
-            return Json(null);
+            var assignmentsQuery = db.Assignments.Where(a => a.Category.Class.Semester == season &&
+                a.Category.Class.Year == year &&
+                a.Category.Class.CIdNavigation.DIdNavigation.Subject == subject &&
+                a.Category.Class.CId == num);
+
+            if(category != null)
+            {
+                assignmentsQuery = assignmentsQuery.Where(a => a.Category.CatName == category);
+            }
+
+            var assignments = assignmentsQuery
+                .Select(a => new
+                {
+                    aname = a.AName,
+                    cname = a.Category.CatName,
+                    due = a.DueDate,
+                    submissions = a.Submissions.Count
+                }).ToList();
+
+            return Json(assignments);
         }
 
 
@@ -229,7 +248,32 @@ namespace LMS_CustomIdentity.Controllers
         /// <returns>A JSON object containing success = true/false</returns>
         public IActionResult CreateAssignment(string subject, int num, string season, int year, string category, string asgname, int asgpoints, DateTime asgdue, string asgcontents)
         {
-            return Json(new { success = false });
+            var categoryID = db.AssignmentCategories
+                .Where(ac => ac.Class.CIdNavigation.CNum == num && ac.Class.CIdNavigation.DIdNavigation.Subject == subject &&
+                ac.Class.Semester == season && ac.Class.Year == year && ac.CatName == category)
+                .Select(ac => ac.CategoryId).FirstOrDefault();
+
+            if (categoryID == 0)
+            {
+                return Json(new { success = false });
+            }
+
+            if (db.Assignments.Any(a => a.CategoryId == categoryID && a.AName == asgname))
+            {
+                return Json(new { success = false });
+            }
+
+            db.Assignments.Add(new LMS.Models.LMSModels.Assignment
+            {
+                AName = asgname,
+                Points = (uint)asgpoints,
+                DueDate = asgdue,
+                AContents = asgcontents,
+                CategoryId = categoryID
+            });
+
+            db.SaveChanges();
+            return Json(new { success = true });
         }
 
 

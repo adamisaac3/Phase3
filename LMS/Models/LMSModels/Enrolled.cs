@@ -7,8 +7,6 @@ namespace LMS.Models.LMSModels
     {
         public uint SId { get; set; }
         public uint ClassId { get; set; }
-        public DateTime SDateTime { get; set; }
-        public uint? Score { get; set; }
         public string Grade { get; set; } = null!;
 
         public virtual Class Class { get; set; } = null!;
