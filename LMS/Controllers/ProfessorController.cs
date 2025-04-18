@@ -332,7 +332,29 @@ namespace LMS_CustomIdentity.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetSubmissionsToAssignment(string subject, int num, string season, int year, string category, string asgname)
         {
-            return Json(null);
+            try
+            {
+                var submissions = db.Submissions
+                    .Where(s => s.Assignment.Category.Class.CIdNavigation.CNum == num &&
+                    s.Assignment.Category.Class.CIdNavigation.DIdNavigation.Subject == subject &&
+                    s.Assignment.Category.Class.Semester == season &&
+                    s.Assignment.Category.Class.Year == year &&
+                    s.Assignment.AName == asgname)
+                    .Select(s => new
+                    {
+                        fname = s.SIdNavigation.FName,
+                        lname = s.SIdNavigation.LName,
+                        uid = s.SIdNavigation.UId,
+                        time = s.SDateTime,
+                        score = s.Score
+                    }).ToList();
+
+                return Json(submissions);
+            }
+            catch(Exception e)
+            {
+                return Json(new { error = e.Message });
+            }
         }
 
 
@@ -350,7 +372,35 @@ namespace LMS_CustomIdentity.Controllers
         /// <returns>A JSON object containing success = true/false</returns>
         public IActionResult GradeSubmission(string subject, int num, string season, int year, string category, string asgname, string uid, int score)
         {
-            return Json(new { success = false });
+            try
+            {
+
+
+                var submission = db.Submissions.Include(s => s.Assignment).ThenInclude(a => a.Category).ThenInclude(c => c.Class).
+                    FirstOrDefault(s => s.SIdNavigation.UId == uid &&
+                    s.Assignment.Category.Class.CIdNavigation.CNum == num &&
+                    s.Assignment.Category.Class.CIdNavigation.DIdNavigation.Subject == subject &&
+                    s.Assignment.Category.Class.Semester == season &&
+                    s.Assignment.Category.CatName == category &&
+                    s.Assignment.AName == asgname &&
+                    s.Assignment.Category.Class.Year == year);
+
+                if (submission == null)
+                {
+                    return Json(new { success = false });
+                }
+
+                submission.Score = (uint)score;
+                db.SaveChanges();
+
+                UpdateStudentGrade(uid, submission.Assignment.Category.ClassId);
+
+                return Json(new { success = true });
+            }
+            catch(Exception e)
+            {
+                return Json(new { success = false });
+            }
         }
 
 

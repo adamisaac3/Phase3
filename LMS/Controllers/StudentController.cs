@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using LMS.Models.LMSModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 
 // For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -152,7 +153,7 @@ namespace LMS.Controllers
         public IActionResult SubmitAssignmentText(string subject, int num, string season, int year,
           string category, string asgname, string uid, string contents)
         {
-            var assignment = db.Assignments.FirstOrDefault(a => a.AName == asgname &&
+            var assignment = db.Assignments.Include(a => a.Category).ThenInclude(c => c.Class).FirstOrDefault(a => a.AName == asgname &&
                 a.Category.Class.CIdNavigation.CNum == num &&
                 a.Category.Class.Year == year &&
                 a.Category.Class.Semester == season &&
@@ -164,7 +165,7 @@ namespace LMS.Controllers
                 return Json(new { success = false });
             }
 
-            var isEnrolled = db.Enrolleds.Any(e => e.ClassId == assignment.Category.ClassId &&
+            var isEnrolled = db.Enrolleds.Any(e => e.Class == assignment.Category.Class &&
                 e.SIdNavigation.UId == uid);
 
             if (!isEnrolled)

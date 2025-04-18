@@ -113,8 +113,25 @@ namespace LMS.Controllers
         /// <param name="asgname">The name of the assignment in the category</param>
         /// <returns>The assignment contents</returns>
         public IActionResult GetAssignmentContents(string subject, int num, string season, int year, string category, string asgname)
-        {            
-            return Content("");
+        {
+            try
+            {
+
+
+                var content = db.Assignments.Where(a => a.AName == asgname &&
+                a.Category.CatName == category &&
+                a.Category.Class.Semester == season &&
+                a.Category.Class.Year == year &&
+                a.Category.Class.CIdNavigation.CNum == num &&
+                a.Category.Class.CIdNavigation.DIdNavigation.Subject == subject).Select(a => a.AContents).FirstOrDefault();
+
+
+                return Content(content ?? "");
+            }
+            catch(Exception e)
+            {
+                return Content("");
+            }
         }
 
 
@@ -133,8 +150,25 @@ namespace LMS.Controllers
         /// <param name="uid">The uid of the student who submitted it</param>
         /// <returns>The submission text</returns>
         public IActionResult GetSubmissionText(string subject, int num, string season, int year, string category, string asgname, string uid)
-        {            
-            return Content("");
+        {
+            try
+            {
+                var submission = db.Submissions
+                    .Where(s => s.Assignment.Category.Class.CIdNavigation.CNum == num &&
+                                         s.Assignment.Category.Class.CIdNavigation.DIdNavigation.Subject == subject &&
+                                         s.Assignment.Category.Class.Semester == season &&
+                                         s.Assignment.Category.Class.Year == year &&
+                                         s.Assignment.Category.CatName == category &&
+                                         s.Assignment.AName == asgname &&
+                                         s.SIdNavigation.UId == uid).Select(s => s.SContent).FirstOrDefault();
+
+
+                return Content(submission ?? "");
+            }
+            catch (Exception e)
+            {
+                return Content("");
+            }
         }
 
 
