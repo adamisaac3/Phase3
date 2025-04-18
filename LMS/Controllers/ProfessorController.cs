@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -165,26 +166,36 @@ namespace LMS_CustomIdentity.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetAssignmentsInCategory(string subject, int num, string season, int year, string category)
         {
-            var assignmentsQuery = db.Assignments.Where(a => a.Category.Class.Semester == season &&
+            try
+            {
+                Debug.Print(category);
+                
+                var assignmentsQuery = db.Assignments.Where(a => a.Category.Class.Semester == season &&
                 a.Category.Class.Year == year &&
                 a.Category.Class.CIdNavigation.DIdNavigation.Subject == subject &&
                 a.Category.Class.CId == num);
 
-            if(category != null)
-            {
-                assignmentsQuery = assignmentsQuery.Where(a => a.Category.CatName == category);
-            }
-
-            var assignments = assignmentsQuery
-                .Select(a => new
+                if (category != null)
                 {
-                    aname = a.AName,
-                    cname = a.Category.CatName,
-                    due = a.DueDate,
-                    submissions = a.Submissions.Count
-                }).ToList();
+                    assignmentsQuery = assignmentsQuery.Where(a => a.Category.CatName == category);
+                }
 
-            return Json(assignments);
+                var assignments = assignmentsQuery
+                    .Select(a => new
+                    {
+                        aname = a.AName,
+                        cname = a.Category.CatName,
+                        due = a.DueDate,
+                        submissions = a.Submissions.Count(s => s.AssignmentId == a.AssignmentId)
+                    }).ToList();
+
+                return Json(assignments);
+            }
+            catch(Exception e)
+            {
+                return Json(new { error = e.Message });
+            }
+            
         }
 
 
