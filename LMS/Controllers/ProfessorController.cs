@@ -119,7 +119,30 @@ namespace LMS_CustomIdentity.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetStudentsInClass(string subject, int num, string season, int year)
         {
-            return Json(null);
+            try
+            {
+
+
+                var students = db.Enrolleds.Where(e => e.Class.CIdNavigation.DIdNavigation.Subject == subject &&
+                        e.Class.CIdNavigation.CNum == num &&
+                        e.Class.Year == year &&
+                        e.Class.Semester == season).Select(e => new
+                        {
+                            fname = e.SIdNavigation.FName,
+                            lname = e.SIdNavigation.LName,
+                            uid = e.SIdNavigation.UId,
+                            dob = e.SIdNavigation.DateOfBirth,
+                            grade = e.Grade
+                        }).ToList();
+
+                return Json(students);
+            }
+            catch(Exception e)
+            {
+                return Json(new { error = e.Message });
+            }
+
+
         }
 
 
@@ -272,6 +295,8 @@ namespace LMS_CustomIdentity.Controllers
                 CategoryId = categoryID
             });
 
+            UpdateAllStudentGrades(db.Classes.Where(c => c.Year == year && c.Semester == season && c.CIdNavigation.DIdNavigation.Subject == subject).Select(e => e.ClassId).FirstOrDefault()) ;
+
             db.SaveChanges();
             return Json(new { success = true });
         }
@@ -351,9 +376,27 @@ namespace LMS_CustomIdentity.Controllers
             }
 
         }
-        
+
         /*******End code to modify********/
+        private void UpdateAllStudentGrades(uint classID)
+        {
+            var studentIDs = db.Enrolleds.Where(e => e.ClassId == classID).Select(e => e.SIdNavigation.UId).ToList();
+
+            foreach(var studentId in studentIDs)
+            {
+                UpdateStudentGrade(studentId, classID);
+            }
+        }
+    
+        private void UpdateStudentGrade(string uid, uint classId)
+        {
+            var enrolled = db.Enrolleds.FirstOrDefault(e => e.SIdNavigation.UId == uid && e.ClassId == classId);
+
+            enrolled.Grade = GradeCalculator.CalculateGrade(db, uid, classId);
+        }
+    
     }
+
 }
 
 public class GradeCalculator
