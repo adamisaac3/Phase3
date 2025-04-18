@@ -168,12 +168,11 @@ namespace LMS_CustomIdentity.Controllers
         {
             try
             {
-                Debug.Print(category);
                 
                 var assignmentsQuery = db.Assignments.Where(a => a.Category.Class.Semester == season &&
                 a.Category.Class.Year == year &&
                 a.Category.Class.CIdNavigation.DIdNavigation.Subject == subject &&
-                a.Category.Class.CId == num);
+                a.Category.Class.CIdNavigation.CNum == num);
 
                 if (category != null)
                 {
@@ -190,8 +189,9 @@ namespace LMS_CustomIdentity.Controllers
                     }).ToList();
 
                 return Json(assignments);
+            
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 return Json(new { error = e.Message });
             }

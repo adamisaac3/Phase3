@@ -113,8 +113,21 @@ namespace LMS.Controllers
         /// <param name="uid"></param>
         /// <returns>The JSON array</returns>
         public IActionResult GetAssignmentsInClass(string subject, int num, string season, int year, string uid)
-        {            
-            return Json(null);
+        {
+            var assignments = db.Assignments.Where(a => a.Category.Class.CIdNavigation.DIdNavigation.Subject == subject &&
+                a.Category.Class.CIdNavigation.CNum == num &&
+                a.Category.Class.Semester == season &&
+                a.Category.Class.Year == year &&
+                db.Enrolleds.Any(s => s.Class == a.Category.Class && s.SIdNavigation.UId == uid)).Select(a => new
+                {
+                    aname = a.AName,
+                    cname = a.Category.CatName,
+                    due = a.DueDate,
+                    score = db.Submissions.Where(s => s.AssignmentId == a.AssignmentId && s.SIdNavigation.UId == uid)
+                    .Select(s => s.Score).FirstOrDefault()
+                }).ToList();
+
+            return Json(assignments);
         }
 
 
@@ -203,7 +216,40 @@ namespace LMS.Controllers
         /// <returns>A JSON object containing a single field called "gpa" with the number value</returns>
         public IActionResult GetGPA(string uid)
         {            
-            return Json(null);
+            var gradePoint = new Dictionary<string, double>
+            {
+               {"A", 4.0},
+               {"A-", 3.7},
+               {"B+", 3.3},
+               {"B", 3.0},
+               {"B-", 2.7},
+               {"C+", 2.3},
+               {"C", 2.0},
+               {"C-", 1.7},
+               {"D+", 1.3},
+               {"D", 1.0},
+               {"D-", 0.7},
+               {"E", 0.0}
+            };
+
+            var grades = db.Enrolleds.Where(s => s.SIdNavigation.UId == uid && s.Grade != "--").Select(s => s.Grade).ToList();
+
+            if(grades.Count == 0)
+            {
+                return Json(new { gpa = 0.0 });
+            }
+
+            double totalPoints = 0;
+            foreach(var grade in grades)
+            {
+                if(gradePoint.TryGetValue(grade, out double points))
+                {
+                    totalPoints += points;
+                }
+            }
+
+            double gpa = totalPoints / grades.Count;
+            return Json(new { gpa = Math.Round(gpa, 2) });
         }
                 
         /*******End code to modify********/

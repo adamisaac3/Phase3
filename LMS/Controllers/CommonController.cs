@@ -155,8 +155,58 @@ namespace LMS.Controllers
         /// or an object containing {success: false} if the user doesn't exist
         /// </returns>
         public IActionResult GetUser(string uid)
-        {           
-            return Json(new { success = false });
+        {
+            try
+            {
+                var admin = db.Administrators.FirstOrDefault(a => a.UId == uid);
+
+                if(admin != null)
+                {
+                    return Json(new
+                    {
+                        fname = admin.FName,
+                        lname = admin.LName,
+                        uid = admin.UId
+                    });
+
+                }
+
+
+                var professor = db.Professors.FirstOrDefault(p => p.UId == uid);
+
+                if(professor != null)
+                {
+                    var department = db.Departments.FirstOrDefault(d => d.DId == professor.WorksIn);
+
+                    return Json(new
+                    {
+                        fname = professor.FName,
+                        lname = professor.LName,
+                        uid = professor.UId,
+                        department = department.DName ?? ""
+                    });
+                }
+
+                var student = db.Students.FirstOrDefault(p => p.UId == uid);
+
+                if (student != null)
+                {
+                    var department = db.Departments.FirstOrDefault(d => d.DId == student.Major);
+                    return Json(new
+                    {
+                        fname = student.FName,
+                        lname = student.LName,
+                        uid = student.UId,
+                        department = department.DName ?? ""
+                    });
+                }
+
+                return Json(new { sucess = false });
+            }
+            catch(Exception e)
+            {
+                return Json(new { sucess = false });
+            }
         }
 
 
