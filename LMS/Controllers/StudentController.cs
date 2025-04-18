@@ -78,7 +78,9 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetMyClasses(string uid)
         {
-            var classes = db.Enrolleds
+            try
+            {
+                var classes = db.Enrolleds
                 .Where(e => e.SIdNavigation.UId == uid)
                 .Join(
                     db.Classes,
@@ -96,7 +98,12 @@ namespace LMS.Controllers
                 )
                 .ToList();
 
-            return Json(classes);
+                return Json(classes);
+            }
+            catch(Exception e)
+            {
+                return Json(new { error = e.Message });
+            }
         }
 
         /// <summary>
@@ -115,7 +122,9 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetAssignmentsInClass(string subject, int num, string season, int year, string uid)
         {
-            var assignments = db.Assignments.Where(a => a.Category.Class.CIdNavigation.DIdNavigation.Subject == subject &&
+            try
+            {
+                var assignments = db.Assignments.Where(a => a.Category.Class.CIdNavigation.DIdNavigation.Subject == subject &&
                 a.Category.Class.CIdNavigation.CNum == num &&
                 a.Category.Class.Semester == season &&
                 a.Category.Class.Year == year &&
@@ -128,7 +137,12 @@ namespace LMS.Controllers
                     .Select(s => s.Score).FirstOrDefault()
                 }).ToList();
 
-            return Json(assignments);
+                return Json(assignments);
+            }
+            catch(Exception e)
+            {
+                return Json(new { error = e.Message });
+            }
         }
 
 
@@ -153,48 +167,56 @@ namespace LMS.Controllers
         public IActionResult SubmitAssignmentText(string subject, int num, string season, int year,
           string category, string asgname, string uid, string contents)
         {
-            var assignment = db.Assignments.Include(a => a.Category).ThenInclude(c => c.Class).FirstOrDefault(a => a.AName == asgname &&
+            try
+            {
+                var assignment = db.Assignments.Include(a => a.Category).ThenInclude(c => c.Class).FirstOrDefault(a => a.AName == asgname &&
                 a.Category.Class.CIdNavigation.CNum == num &&
                 a.Category.Class.Year == year &&
                 a.Category.Class.Semester == season &&
                 a.Category.CatName == category &&
                 a.Category.Class.CIdNavigation.DIdNavigation.Subject == subject);
 
-            if (assignment == null)
-            {
-                return Json(new { success = false });
-            }
-
-            var isEnrolled = db.Enrolleds.Any(e => e.Class == assignment.Category.Class &&
-                e.SIdNavigation.UId == uid);
-
-            if (!isEnrolled)
-            {
-                return Json(new { success = false });
-            }
-
-            var submission = db.Submissions.FirstOrDefault(s => s.AssignmentId == assignment.AssignmentId &&
-                s.SIdNavigation.UId == uid);
-
-            if (submission != null)
-            {
-                submission.SDateTime = DateTime.Now;
-                submission.SContent = contents;
-                db.SaveChanges();
-                return Json(new { success = true });
-            }
-            else
-            {
-                db.Submissions.Add(new Submission
+                if (assignment == null)
                 {
-                    AssignmentId = assignment.AssignmentId,
-                    SId = db.Students.FirstOrDefault(s => s.UId == uid).SId,
-                    SDateTime = DateTime.Now,
-                    SContent = contents
-                });
-                db.SaveChanges();
-                return Json(new { success = true });
+                    return Json(new { success = false });
+                }
+
+                var isEnrolled = db.Enrolleds.Any(e => e.Class == assignment.Category.Class &&
+                    e.SIdNavigation.UId == uid);
+
+                if (!isEnrolled)
+                {
+                    return Json(new { success = false });
+                }
+
+                var submission = db.Submissions.FirstOrDefault(s => s.AssignmentId == assignment.AssignmentId &&
+                    s.SIdNavigation.UId == uid);
+
+                if (submission != null)
+                {
+                    submission.SDateTime = DateTime.Now;
+                    submission.SContent = contents;
+                    db.SaveChanges();
+                    return Json(new { success = true });
+                }
+                else
+                {
+                    db.Submissions.Add(new Submission
+                    {
+                        AssignmentId = assignment.AssignmentId,
+                        SId = db.Students.FirstOrDefault(s => s.UId == uid).SId,
+                        SDateTime = DateTime.Now,
+                        SContent = contents
+                    });
+                    db.SaveChanges();
+                    return Json(new { success = true });
+                }   
             }
+            catch (Exception e)
+            {
+                return Json(new { success = false });
+            }
+            
         }
 
 
@@ -257,41 +279,48 @@ namespace LMS.Controllers
         /// <param name="uid">The uid of the student</param>
         /// <returns>A JSON object containing a single field called "gpa" with the number value</returns>
         public IActionResult GetGPA(string uid)
-        {            
-            var gradePoint = new Dictionary<string, double>
+        {
+            try
             {
-               {"A", 4.0},
-               {"A-", 3.7},
-               {"B+", 3.3},
-               {"B", 3.0},
-               {"B-", 2.7},
-               {"C+", 2.3},
-               {"C", 2.0},
-               {"C-", 1.7},
-               {"D+", 1.3},
-               {"D", 1.0},
-               {"D-", 0.7},
-               {"E", 0.0}
-            };
+                var gradePoint = new Dictionary<string, double>
+                {
+                    {"A", 4.0},
+                    {"A-", 3.7},
+                    {"B+", 3.3},
+                    {"B", 3.0},
+                    {"B-", 2.7},
+                    {"C+", 2.3},
+                    {"C", 2.0},
+                    {"C-", 1.7},
+                    {"D+", 1.3},
+                    {"D", 1.0},
+                    {"D-", 0.7},
+                    {"E", 0.0}
+                };
 
-            var grades = db.Enrolleds.Where(s => s.SIdNavigation.UId == uid && s.Grade != "--").Select(s => s.Grade).ToList();
+                var grades = db.Enrolleds.Where(s => s.SIdNavigation.UId == uid && s.Grade != "--").Select(s => s.Grade).ToList();
 
-            if(grades.Count == 0)
+                if (grades.Count == 0)
+                {
+                    return Json(new { gpa = 0.0 });
+                }
+
+                double totalPoints = 0;
+                foreach (var grade in grades)
+                {
+                    if (gradePoint.TryGetValue(grade, out double points))
+                    {
+                        totalPoints += points;
+                    }
+                }
+
+                double gpa = totalPoints / grades.Count;
+                return Json(new { gpa = Math.Round(gpa, 2) });
+            }
+            catch(Exception e)
             {
                 return Json(new { gpa = 0.0 });
             }
-
-            double totalPoints = 0;
-            foreach(var grade in grades)
-            {
-                if(gradePoint.TryGetValue(grade, out double points))
-                {
-                    totalPoints += points;
-                }
-            }
-
-            double gpa = totalPoints / grades.Count;
-            return Json(new { gpa = Math.Round(gpa, 2) });
         }
                 
         /*******End code to modify********/

@@ -213,7 +213,9 @@ namespace LMS_CustomIdentity.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetAssignmentCategories(string subject, int num, string season, int year)
         {
-            var cats = db.AssignmentCategories.Where(ac => ac.Class.CIdNavigation.CNum == num &&
+            try
+            {
+                var cats = db.AssignmentCategories.Where(ac => ac.Class.CIdNavigation.CNum == num &&
                 ac.Class.CIdNavigation.DIdNavigation.Subject == subject &&
                 ac.Class.Semester == season && ac.Class.Year == year).Select(ac => new
                 {
@@ -221,7 +223,12 @@ namespace LMS_CustomIdentity.Controllers
                     weight = ac.Weight
                 }).ToList();
 
-            return Json(cats);
+                return Json(cats);
+            }
+            catch(Exception e)
+            {
+                return Json(new { error = e.Message });
+            }
         }
 
         /// <summary>
@@ -282,34 +289,41 @@ namespace LMS_CustomIdentity.Controllers
         /// <returns>A JSON object containing success = true/false</returns>
         public IActionResult CreateAssignment(string subject, int num, string season, int year, string category, string asgname, int asgpoints, DateTime asgdue, string asgcontents)
         {
-            var categoryID = db.AssignmentCategories
+            try
+            {
+                var categoryID = db.AssignmentCategories
                 .Where(ac => ac.Class.CIdNavigation.CNum == num && ac.Class.CIdNavigation.DIdNavigation.Subject == subject &&
                 ac.Class.Semester == season && ac.Class.Year == year && ac.CatName == category)
                 .Select(ac => ac.CategoryId).FirstOrDefault();
 
-            if (categoryID == 0)
+                if (categoryID == 0)
+                {
+                    return Json(new { success = false });
+                }
+
+                if (db.Assignments.Any(a => a.CategoryId == categoryID && a.AName == asgname))
+                {
+                    return Json(new { success = false });
+                }
+
+                db.Assignments.Add(new LMS.Models.LMSModels.Assignment
+                {
+                    AName = asgname,
+                    Points = (uint)asgpoints,
+                    DueDate = asgdue,
+                    AContents = asgcontents,
+                    CategoryId = categoryID
+                });
+
+                UpdateAllStudentGrades(db.Classes.Where(c => c.Year == year && c.Semester == season && c.CIdNavigation.DIdNavigation.Subject == subject).Select(e => e.ClassId).FirstOrDefault());
+
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
+            catch(Exception e)
             {
                 return Json(new { success = false });
             }
-
-            if (db.Assignments.Any(a => a.CategoryId == categoryID && a.AName == asgname))
-            {
-                return Json(new { success = false });
-            }
-
-            db.Assignments.Add(new LMS.Models.LMSModels.Assignment
-            {
-                AName = asgname,
-                Points = (uint)asgpoints,
-                DueDate = asgdue,
-                AContents = asgcontents,
-                CategoryId = categoryID
-            });
-
-            UpdateAllStudentGrades(db.Classes.Where(c => c.Year == year && c.Semester == season && c.CIdNavigation.DIdNavigation.Subject == subject).Select(e => e.ClassId).FirstOrDefault()) ;
-
-            db.SaveChanges();
-            return Json(new { success = true });
         }
 
 
@@ -441,21 +455,35 @@ namespace LMS_CustomIdentity.Controllers
         /*******End code to modify********/
         private void UpdateAllStudentGrades(uint classID)
         {
-            var studentIDs = db.Enrolleds.Where(e => e.ClassId == classID).Select(e => e.SIdNavigation.UId).ToList();
-
-            foreach(var studentId in studentIDs)
+            try
             {
-                UpdateStudentGrade(studentId, classID);
+                var studentIDs = db.Enrolleds.Where(e => e.ClassId == classID).Select(e => e.SIdNavigation.UId).ToList();
+
+                foreach (var studentId in studentIDs)
+                {
+                    UpdateStudentGrade(studentId, classID);
+                }
+            }
+            catch(Exception e)
+            {
+                Debug.WriteLine($"Error updating student grades: {e.Message}");
             }
         }
     
         private void UpdateStudentGrade(string uid, uint classId)
         {
-            var enrolled = db.Enrolleds.FirstOrDefault(e => e.SIdNavigation.UId == uid && e.ClassId == classId);
+            try
+            {
+                var enrolled = db.Enrolleds.FirstOrDefault(e => e.SIdNavigation.UId == uid && e.ClassId == classId);
 
-            enrolled.Grade = GradeCalculator.CalculateGrade(db, uid, classId);
+                enrolled.Grade = GradeCalculator.CalculateGrade(db, uid, classId);
 
-            db.SaveChanges();
+                db.SaveChanges();
+            }
+            catch(Exception e)
+            {
+                Debug.WriteLine($"Error updating student grade for {uid}: {e.Message}");
+            }
         }
     
     }
@@ -466,43 +494,51 @@ public class GradeCalculator
 {
     public static string CalculateGrade(LMSContext db, string uid, uint classID)
     {
-        var categories = db.AssignmentCategories.Where(ac => ac.ClassId == classID).Include(ac => ac.Assignments).ToList();
-
-        var validCategories = categories.Where(ac => ac.Assignments.Any()).ToList();
-
-        if (!validCategories.Any())
+        try
         {
-            return "--";
-        }
+            var categories = db.AssignmentCategories.Where(ac => ac.ClassId == classID).Include(ac => ac.Assignments).ToList();
 
-        double totalScaledScore = 0;
-        double totalWeights = 0;
+            var validCategories = categories.Where(ac => ac.Assignments.Any()).ToList();
 
-        foreach(var category in validCategories)
-        {
-            double categoryMaxPoints = category.Assignments.Sum(a => a.Points) ?? 0;
-            double studentPoints = 0;
-
-            foreach(var assignment in category.Assignments)
+            if (!validCategories.Any())
             {
-                var submission = db.Submissions.FirstOrDefault(s => s.AssignmentId == assignment.AssignmentId && s.SIdNavigation.UId == uid);
-                studentPoints += submission?.Score ?? 0;
+                return "--";
             }
 
-            double categoryPercent = categoryMaxPoints > 0 ? studentPoints / categoryMaxPoints : 0;
-            totalScaledScore += categoryPercent * category.Weight ?? 0;
-            totalWeights += (double)category.Weight;
-        }
+            double totalScaledScore = 0;
+            double totalWeights = 0;
 
-        if (totalWeights == 0)
+            foreach (var category in validCategories)
+            {
+                double categoryMaxPoints = category.Assignments.Sum(a => a.Points) ?? 0;
+                double studentPoints = 0;
+
+                foreach (var assignment in category.Assignments)
+                {
+                    var submission = db.Submissions.FirstOrDefault(s => s.AssignmentId == assignment.AssignmentId && s.SIdNavigation.UId == uid);
+                    studentPoints += submission?.Score ?? 0;
+                }
+
+                double categoryPercent = categoryMaxPoints > 0 ? studentPoints / categoryMaxPoints : 0;
+                totalScaledScore += categoryPercent * category.Weight ?? 0;
+                totalWeights += (double)category.Weight;
+            }
+
+            if (totalWeights == 0)
+            {
+                return "--";
+            }
+
+            double scalingFactor = 100.0 / totalWeights;
+            double finalScore = totalScaledScore * scalingFactor;
+
+            return PercentToLetterGrade(finalScore);
+        }
+        catch(Exception e)
         {
+            Debug.WriteLine($"Error calculating grade for {uid}: {e.Message}");
             return "--";
         }
-
-        double scalingFactor = 100.0 / totalWeights;
-        double finalScore = totalScaledScore * scalingFactor;
-
-        return PercentToLetterGrade(finalScore);
     }
 
     private static string PercentToLetterGrade(double percent)
@@ -520,7 +556,7 @@ public class GradeCalculator
             >= 67 => "D+",
             >= 63 => "D",
             >= 60 => "D-",
-            _ => "F"
+            _ => "E"
         };
     }
 

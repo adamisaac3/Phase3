@@ -30,13 +30,20 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetDepartments()
         {
-            var departments = db.Departments.Select(d => new
+            try
             {
-                name = d.DName,
-                subject = d.Subject
-            }).ToList();
+                var departments = db.Departments.Select(d => new
+                {
+                    name = d.DName,
+                    subject = d.Subject
+                }).ToList();
 
-            return Json(departments);
+                return Json(departments);
+            }
+            catch(Exception e)
+            {
+                return Json(new {error = e.Message });
+            }
         }
 
 
@@ -54,18 +61,26 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetCatalog()
         {
-            var catalog = db.Departments.Select(d => new
+            try
             {
-                subject = d.Subject,
-                dname = d.DName,
-                courses = db.Courses.Where(c => c.DIdNavigation.Subject == d.Subject).Select(c => new
+                var catalog = db.Departments.Select(d => new
                 {
-                    number = c.CNum,
-                    cname = c.CName
-                }).ToList()
-            }).ToList();
+                    subject = d.Subject,
+                    dname = d.DName,
+                    courses = db.Courses.Where(c => c.DIdNavigation.Subject == d.Subject).Select(c => new
+                    {
+                        number = c.CNum,
+                        cname = c.CName
+                    }).ToList()
+                }).ToList();
 
-            return Json(catalog);
+                return Json(catalog);
+            }
+            
+            catch(Exception e)
+            {
+                return Json(new { error = e.Message });
+            }
         }
 
         /// <summary>
@@ -83,21 +98,28 @@ namespace LMS.Controllers
         /// <param name="number">The course number, as in 5530</param>
         /// <returns>The JSON array</returns>
         public IActionResult GetClassOfferings(string subject, int number)
-        {            
-            var offerings = db.Classes
-                .Where(c => c.CIdNavigation.CNum == number && c.CIdNavigation.DIdNavigation.Subject == subject)
-                .Select(c => new
-                {
-                    season = c.Semester,
-                    year = c.Year,
-                    location = c.Location,
-                    start = c.StartTime.ToString("hh:mm:ss"),
-                    end = c.EndTime.ToString("hh:mm:ss"),
-                    fname = db.Professors.FirstOrDefault(p => p.PId == c.PId).FName,
-                    lname = db.Professors.FirstOrDefault(p => p.PId == c.PId).LName
-                }).ToList();
+        {
+            try
+            {
+                var offerings = db.Classes
+                                .Where(c => c.CIdNavigation.CNum == number && c.CIdNavigation.DIdNavigation.Subject == subject)
+                                .Select(c => new
+                                {
+                                    season = c.Semester,
+                                    year = c.Year,
+                                    location = c.Location,
+                                    start = c.StartTime.ToString("hh:mm:ss"),
+                                    end = c.EndTime.ToString("hh:mm:ss"),
+                                    fname = db.Professors.FirstOrDefault(p => p.PId == c.PId).FName,
+                                    lname = db.Professors.FirstOrDefault(p => p.PId == c.PId).LName
+                                }).ToList();
 
-            return Json(offerings);
+                return Json(offerings);
+            }
+            catch(Exception e)
+            {
+                return Json(new { error = e.Message });
+            }
         }
 
         /// <summary>

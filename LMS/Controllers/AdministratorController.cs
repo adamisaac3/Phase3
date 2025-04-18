@@ -87,15 +87,22 @@ namespace LMS.Controllers
         /// <returns>The JSON result</returns>
         public IActionResult GetCourses(string subject)
         {
-            var courses = db.Courses
+            try
+            {
+                var courses = db.Courses
                 .Where(c => c.DIdNavigation.Subject == subject).OrderBy(c => c.CNum)
                 .Select(c => new
                 {
                     number = c.CNum,
                     name = c.CName
                 }).ToList();
-            
-            return Json(courses);
+
+                return Json(courses);
+            }
+            catch(Exception e)
+            {
+                return Json(new { error = e.Message });
+            }
         }
 
         /// <summary>
@@ -109,13 +116,19 @@ namespace LMS.Controllers
         /// <returns>The JSON result</returns>
         public IActionResult GetProfessors(string subject)
         {
-            var professors = db.Professors.Where(p => p.WorksInNavigation.Subject == subject).OrderBy(p => p.LName).Select(p => new
+            try{
+                var professors = db.Professors.Where(p => p.WorksInNavigation.Subject == subject).OrderBy(p => p.LName).Select(p => new
+                {
+                    lname = p.LName,
+                    fname = p.FName,
+                    uid = p.UId
+                }).ToList();
+                return Json(professors);
+            }
+            catch(Exception e)
             {
-                lname = p.LName,
-                fname = p.FName,
-                uid = p.UId
-            }).ToList();
-            return Json(professors);
+                return Json(new { error = e.Message });
+            }
         }
 
 
