@@ -454,6 +454,8 @@ namespace LMS_CustomIdentity.Controllers
             var enrolled = db.Enrolleds.FirstOrDefault(e => e.SIdNavigation.UId == uid && e.ClassId == classId);
 
             enrolled.Grade = GradeCalculator.CalculateGrade(db, uid, classId);
+
+            db.SaveChanges();
         }
     
     }
@@ -473,28 +475,23 @@ public class GradeCalculator
             return "--";
         }
 
-        long totalScaledScore = 0;
-        long totalWeights = 0;
+        double totalScaledScore = 0;
+        double totalWeights = 0;
 
         foreach(var category in validCategories)
         {
-            long? categoryMaxPoints = category.Assignments.Sum(a => a.Points);
-            long studentPoints = 0;
+            double categoryMaxPoints = category.Assignments.Sum(a => a.Points) ?? 0;
+            double studentPoints = 0;
 
             foreach(var assignment in category.Assignments)
             {
                 var submission = db.Submissions.FirstOrDefault(s => s.AssignmentId == assignment.AssignmentId && s.SIdNavigation.UId == uid);
-                if (submission != null)
-                {
-                    studentPoints += submission?.Score ?? 0;
-                }
-
-                
+                studentPoints += submission?.Score ?? 0;
             }
 
-            double categoryPercent = categoryMaxPoints > 0 ? (double)studentPoints / (double)categoryMaxPoints : 0;
-            totalScaledScore += (long)(categoryPercent * category.Weight);
-            totalWeights += (long)category.Weight;
+            double categoryPercent = categoryMaxPoints > 0 ? studentPoints / categoryMaxPoints : 0;
+            totalScaledScore += categoryPercent * category.Weight ?? 0;
+            totalWeights += (double)category.Weight;
         }
 
         if (totalWeights == 0)
@@ -502,8 +499,8 @@ public class GradeCalculator
             return "--";
         }
 
-        double scalingFactor = 100.0 / (double)totalWeights;
-        double finalScore = (double)totalScaledScore * scalingFactor;
+        double scalingFactor = 100.0 / totalWeights;
+        double finalScore = totalScaledScore * scalingFactor;
 
         return PercentToLetterGrade(finalScore);
     }

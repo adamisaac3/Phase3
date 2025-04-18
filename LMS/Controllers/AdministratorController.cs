@@ -109,7 +109,7 @@ namespace LMS.Controllers
         /// <returns>The JSON result</returns>
         public IActionResult GetProfessors(string subject)
         {
-            var professors = db.Professors.Where(p => p.WorksIn == db.Departments.FirstOrDefault(d => d.Subject == subject).DId).OrderBy(p => p.LName).Select(p => new
+            var professors = db.Professors.Where(p => p.WorksInNavigation.Subject == subject).OrderBy(p => p.LName).Select(p => new
             {
                 lname = p.LName,
                 fname = p.FName,
@@ -185,13 +185,13 @@ namespace LMS.Controllers
                 TimeOnly startTime = TimeOnly.FromDateTime(start);
                 TimeOnly endTime = TimeOnly.FromDateTime(end);
 
-                var course = db.Courses.FirstOrDefault(c => c.DId == db.Departments.FirstOrDefault(d => d.Subject == subject).DId);
+                var course = db.Courses.FirstOrDefault(c => c.CNum == number && c.DIdNavigation.Subject == subject);
                 if (course == null)
                 {
                     return Json(new { success = false });
                 }
 
-                if (db.Classes.Any(c => c.CId == course.CId && c.Semester == season && c.Year == year))
+                if (db.Classes.Any(c => c.CIdNavigation.CNum == number && c.Semester == season && c.Year == year))
                 {
                     return Json(new { success = false });
                 }
@@ -199,7 +199,7 @@ namespace LMS.Controllers
                 bool existingConflict = db.Classes.Any(c => c.Location == location && c.Semester == season && c.Year == year &&
                     ((startTime >= c.StartTime && startTime < c.EndTime) ||
                      (endTime > c.StartTime && endTime <= c.EndTime) ||
-                     (startTime <= c.StartTime && endTime >= c.EndTime)));
+                     (startTime < c.StartTime && endTime > c.EndTime)));
 
                 if (existingConflict)
                 {
